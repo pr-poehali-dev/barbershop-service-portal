@@ -10,7 +10,14 @@ import {
   LogOut, 
   ChevronDown,
   Menu,
-  X
+  X,
+  BarChart4,
+  BadgeDollarSign,
+  ClipboardList,
+  Tags,
+  MessageCircle,
+  Bell,
+  Target
 } from "lucide-react";
 
 interface SidebarItem {
@@ -18,6 +25,7 @@ interface SidebarItem {
   path: string;
   icon: React.ElementType;
   children?: SidebarItem[];
+  badge?: number;
 }
 
 const sidebarItems: SidebarItem[] = [
@@ -27,14 +35,38 @@ const sidebarItems: SidebarItem[] = [
     icon: LayoutDashboard
   },
   {
+    title: "Аналитика",
+    path: "/admin/analytics",
+    icon: BarChart4
+  },
+  {
     title: "Клиенты",
     path: "/admin/clients",
-    icon: Users
+    icon: Users,
+    badge: 2
   },
   {
     title: "Записи",
     path: "/admin/appointments",
-    icon: Calendar
+    icon: Calendar,
+    badge: 5,
+    children: [
+      {
+        title: "Все записи",
+        path: "/admin/appointments",
+        icon: ClipboardList
+      },
+      {
+        title: "Календарь",
+        path: "/admin/appointments/calendar",
+        icon: Calendar
+      },
+      {
+        title: "Мастера",
+        path: "/admin/appointments/staff",
+        icon: Scissors
+      }
+    ]
   },
   {
     title: "Товары",
@@ -49,12 +81,13 @@ const sidebarItems: SidebarItem[] = [
       {
         title: "Категории",
         path: "/admin/products/categories",
-        icon: ShoppingBag
+        icon: Tags
       },
       {
         title: "Заказы",
         path: "/admin/products/orders",
-        icon: ShoppingBag
+        icon: ClipboardList,
+        badge: 3
       }
     ]
   },
@@ -62,6 +95,33 @@ const sidebarItems: SidebarItem[] = [
     title: "Услуги",
     path: "/admin/services",
     icon: Scissors
+  },
+  {
+    title: "Финансы",
+    path: "/admin/finance",
+    icon: BadgeDollarSign
+  },
+  {
+    title: "Маркетинг",
+    path: "/admin/marketing",
+    icon: Target,
+    children: [
+      {
+        title: "Акции",
+        path: "/admin/marketing/promotions",
+        icon: Target
+      },
+      {
+        title: "Отзывы",
+        path: "/admin/marketing/reviews",
+        icon: MessageCircle
+      },
+      {
+        title: "Рассылки",
+        path: "/admin/marketing/newsletters",
+        icon: Bell
+      }
+    ]
   },
   {
     title: "Настройки",
@@ -74,6 +134,17 @@ const Sidebar = () => {
   const location = useLocation();
   const [isOpen, setIsOpen] = useState(false);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  
+  // Автоматически раскрываем подменю для активной страницы
+  useState(() => {
+    const activeParent = sidebarItems.find(item => 
+      item.children && item.children.some(child => location.pathname === child.path)
+    );
+    
+    if (activeParent && !expandedItems.includes(activeParent.title)) {
+      setExpandedItems(prev => [...prev, activeParent.title]);
+    }
+  });
   
   const toggleExpand = (title: string) => {
     setExpandedItems(prev => 
@@ -101,7 +172,7 @@ const Sidebar = () => {
       <div className="lg:hidden fixed top-0 left-0 p-4 z-50">
         <button
           onClick={() => setIsOpen(!isOpen)}
-          className="p-2 bg-sidebar text-sidebar-foreground rounded-md focus:outline-none"
+          className="p-2 bg-primary text-primary-foreground rounded-md focus:outline-none"
         >
           {isOpen ? <X size={24} /> : <Menu size={24} />}
         </button>
@@ -118,17 +189,17 @@ const Sidebar = () => {
       {/* Sidebar */}
       <aside
         className={`
-          fixed top-0 left-0 h-full bg-sidebar text-sidebar-foreground w-64 transition-transform transform z-50 lg:translate-x-0
+          fixed top-0 left-0 h-full bg-slate-900 text-white w-64 transition-transform transform z-50 lg:translate-x-0
           ${isOpen ? "translate-x-0" : "-translate-x-full"}
           lg:static lg:z-0
         `}
       >
         <div className="h-full flex flex-col">
           {/* Header */}
-          <div className="p-4 border-b border-sidebar-border">
+          <div className="p-4 border-b border-slate-700">
             <Link to="/admin" className="flex items-center space-x-2">
-              <Scissors className="h-6 w-6 text-sidebar-primary" />
-              <span className="text-xl font-bold text-sidebar-primary">Стиль Админ</span>
+              <Scissors className="h-6 w-6 text-primary" />
+              <span className="text-xl font-bold text-white">Стиль Админ</span>
             </Link>
           </div>
           
@@ -143,12 +214,17 @@ const Sidebar = () => {
                         onClick={() => toggleExpand(item.title)}
                         className={`
                           w-full flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors
-                          ${isChildActive(item) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent/50'}
+                          ${isChildActive(item) ? 'bg-slate-800 text-primary' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}
                         `}
                       >
                         <div className="flex items-center">
                           <item.icon className="mr-2 h-4 w-4" />
                           <span>{item.title}</span>
+                          {item.badge && (
+                            <span className="ml-2 px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
+                              {item.badge}
+                            </span>
+                          )}
                         </div>
                         <ChevronDown 
                           className={`h-4 w-4 transition-transform ${expandedItems.includes(item.title) ? 'rotate-180' : ''}`} 
@@ -162,12 +238,19 @@ const Sidebar = () => {
                               <Link
                                 to={child.path}
                                 className={`
-                                  flex items-center px-3 py-2 rounded-md text-sm transition-colors
-                                  ${isActive(child.path) ? 'bg-sidebar-accent text-sidebar-accent-foreground font-medium' : 'hover:bg-sidebar-accent/50 text-sidebar-foreground/70'}
+                                  flex items-center justify-between px-3 py-2 rounded-md text-sm transition-colors
+                                  ${isActive(child.path) ? 'bg-primary/10 text-primary font-medium' : 'hover:bg-slate-800 text-slate-400 hover:text-white'}
                                 `}
                               >
-                                <child.icon className="mr-2 h-4 w-4" />
-                                <span>{child.title}</span>
+                                <div className="flex items-center">
+                                  <child.icon className="mr-2 h-4 w-4" />
+                                  <span>{child.title}</span>
+                                </div>
+                                {child.badge && (
+                                  <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
+                                    {child.badge}
+                                  </span>
+                                )}
                               </Link>
                             </li>
                           ))}
@@ -178,12 +261,19 @@ const Sidebar = () => {
                     <Link
                       to={item.path}
                       className={`
-                        flex items-center px-3 py-2 rounded-md text-sm font-medium transition-colors
-                        ${isActive(item.path) ? 'bg-sidebar-accent text-sidebar-accent-foreground' : 'hover:bg-sidebar-accent/50'}
+                        flex items-center justify-between px-3 py-2 rounded-md text-sm font-medium transition-colors
+                        ${isActive(item.path) ? 'bg-primary/20 text-primary' : 'hover:bg-slate-800 text-slate-300 hover:text-white'}
                       `}
                     >
-                      <item.icon className="mr-2 h-4 w-4" />
-                      <span>{item.title}</span>
+                      <div className="flex items-center">
+                        <item.icon className="mr-2 h-4 w-4" />
+                        <span>{item.title}</span>
+                      </div>
+                      {item.badge && (
+                        <span className="px-1.5 py-0.5 text-xs rounded-full bg-primary text-white">
+                          {item.badge}
+                        </span>
+                      )}
                     </Link>
                   )}
                 </li>
@@ -192,10 +282,10 @@ const Sidebar = () => {
           </nav>
           
           {/* Footer */}
-          <div className="p-4 border-t border-sidebar-border mt-auto">
+          <div className="p-4 border-t border-slate-700 mt-auto">
             <Link
               to="/login"
-              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-sidebar-foreground hover:bg-sidebar-accent/50 transition-colors"
+              className="flex items-center px-3 py-2 rounded-md text-sm font-medium text-slate-300 hover:bg-slate-800 hover:text-white transition-colors"
             >
               <LogOut className="mr-2 h-4 w-4" />
               <span>Выйти</span>

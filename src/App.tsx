@@ -13,6 +13,7 @@ import ForgotPassword from "./pages/ForgotPassword";
 import Appointments from "./pages/Appointments";
 import Checkout from "./pages/Checkout";
 import Dashboard from "./pages/admin/Dashboard";
+import Clients from "./pages/admin/Clients";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -38,6 +39,7 @@ const App = () => (
           
           {/* Административная панель */}
           <Route path="/admin" element={<Dashboard />} />
+          <Route path="/admin/clients" element={<Clients />} />
           
           {/* Страница 404 */}
           <Route path="*" element={<NotFound />} />

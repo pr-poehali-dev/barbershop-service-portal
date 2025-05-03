@@ -18,6 +18,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/components/ui/use-toast";
+import { useAuth } from "@/hooks/useAuth";
 
 // Форма входа валидация
 const loginFormSchema = z.object({
@@ -50,6 +51,7 @@ const Login = () => {
   const [activeTab, setActiveTab] = useState("login");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const { login, register: registerUser, isLoading } = useAuth();
 
   // Форма входа
   const loginForm = useForm<LoginFormValues>({
@@ -75,41 +77,31 @@ const Login = () => {
   });
 
   // Обработка отправки формы входа
-  const onLoginSubmit = (data: LoginFormValues) => {
-    // В реальном приложении здесь будет запрос к API
-    console.log("Login data:", data);
-    
-    // Имитация успешного входа
-    toast({
-      title: "Вход выполнен успешно",
-      description: `Добро пожаловать!`,
-      duration: 3000
-    });
-    
-    // Перенаправление на главную страницу
-    setTimeout(() => {
-      navigate("/");
-    }, 1000);
+  const onLoginSubmit = async (data: LoginFormValues) => {
+    try {
+      await login(data);
+      // Перенаправление и тост уже обрабатываются в хуке useAuth
+    } catch (error) {
+      // Ошибки уже обрабатываются в API-клиенте
+      console.error("Login failed", error);
+    }
   };
 
   // Обработка отправки формы регистрации
-  const onRegisterSubmit = (data: RegisterFormValues) => {
-    // В реальном приложении здесь будет запрос к API
-    console.log("Register data:", data);
-    
-    // Имитация успешной регистрации
-    toast({
-      title: "Регистрация выполнена успешно",
-      description: "Вы успешно зарегистрировались в системе",
-      duration: 3000
-    });
-    
-    // Переключение на вкладку входа
-    setTimeout(() => {
-      setActiveTab("login");
-      // Предзаполняем форму входа email-ом из формы регистрации
-      loginForm.setValue("email", data.email);
-    }, 1000);
+  const onRegisterSubmit = async (data: RegisterFormValues) => {
+    try {
+      await registerUser({
+        firstName: data.firstName,
+        lastName: data.lastName,
+        email: data.email,
+        password: data.password,
+        confirmPassword: data.confirmPassword
+      });
+      // Перенаправление и тост уже обрабатываются в хуке useAuth
+    } catch (error) {
+      // Ошибки уже обрабатываются в API-клиенте
+      console.error("Registration failed", error);
+    }
   };
 
   return (
@@ -228,8 +220,8 @@ const Login = () => {
                       </Link>
                     </div>
                     
-                    <Button type="submit" className="w-full">
-                      Войти
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Вход..." : "Войти"}
                     </Button>
                   </form>
                 </Form>
@@ -413,8 +405,8 @@ const Login = () => {
                       )}
                     />
                     
-                    <Button type="submit" className="w-full">
-                      Зарегистрироваться
+                    <Button type="submit" className="w-full" disabled={isLoading}>
+                      {isLoading ? "Регистрация..." : "Зарегистрироваться"}
                     </Button>
                   </form>
                 </Form>

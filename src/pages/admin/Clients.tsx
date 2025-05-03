@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Sidebar from "@/components/dashboard/Sidebar";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import { Button } from "@/components/ui/button";
@@ -34,6 +34,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Skeleton } from "@/components/ui/skeleton";
 import { 
   Search, 
   Plus, 
@@ -48,168 +49,160 @@ import {
   PhoneIcon,
   Calendar,
   ArrowUpDown,
-  ChevronDown
+  ChevronDown,
+  Loader2
 } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
-
-// Тип данных клиента
-interface Client {
-  id: number;
-  name: string;
-  email: string;
-  phone: string;
-  visits: number;
-  lastVisit: string;
-  totalSpent: number;
-  status: 'active' | 'inactive' | 'vip';
-  avatar?: string;
-  notes?: string;
-}
-
-// Моковые данные клиентов
-const mockClients: Client[] = [
-  {
-    id: 1,
-    name: "Анна Смирнова",
-    email: "anna@example.com",
-    phone: "+7 (901) 234-56-78",
-    visits: 12,
-    lastVisit: "2025-04-25",
-    totalSpent: 25600,
-    status: "vip",
-    avatar: "https://images.unsplash.com/photo-1508214751196-bcfd4ca60f91?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80",
-    notes: "Предпочитает натуральные средства. Аллергия на никель."
-  },
-  {
-    id: 2,
-    name: "Иван Петров",
-    email: "ivan@example.com",
-    phone: "+7 (902) 345-67-89",
-    visits: 5,
-    lastVisit: "2025-04-20",
-    totalSpent: 8700,
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  },
-  {
-    id: 3,
-    name: "Екатерина Иванова",
-    email: "ekaterina@example.com",
-    phone: "+7 (903) 456-78-90",
-    visits: 8,
-    lastVisit: "2025-04-15",
-    totalSpent: 12400,
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1554151228-14d9def656e4?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  },
-  {
-    id: 4,
-    name: "Дмитрий Соколов",
-    email: "dmitriy@example.com",
-    phone: "+7 (904) 567-89-01",
-    visits: 3,
-    lastVisit: "2025-03-28",
-    totalSpent: 4500,
-    status: "inactive",
-    avatar: "https://images.unsplash.com/photo-1570295999919-56ceb5ecca61?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  },
-  {
-    id: 5,
-    name: "Ольга Козлова",
-    email: "olga@example.com",
-    phone: "+7 (905) 678-90-12",
-    visits: 15,
-    lastVisit: "2025-05-01",
-    totalSpent: 32000,
-    status: "vip",
-    avatar: "https://images.unsplash.com/photo-1534528741775-53994a69daeb?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80",
-    notes: "Дни рождения детей: 15 мая, 22 июля. Любит разговаривать о путешествиях."
-  },
-  {
-    id: 6,
-    name: "Алексей Новиков",
-    email: "alexey@example.com",
-    phone: "+7 (906) 789-01-23",
-    visits: 1,
-    lastVisit: "2025-04-10",
-    totalSpent: 2100,
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1527980965255-d3b416303d12?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  },
-  {
-    id: 7,
-    name: "Мария Кузнецова",
-    email: "maria@example.com",
-    phone: "+7 (907) 890-12-34",
-    visits: 6,
-    lastVisit: "2025-04-03",
-    totalSpent: 9800,
-    status: "active",
-    avatar: "https://images.unsplash.com/photo-1488426862026-3ee34a7d66df?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  },
-  {
-    id: 8,
-    name: "Сергей Морозов",
-    email: "sergey@example.com",
-    phone: "+7 (908) 901-23-45",
-    visits: 0,
-    lastVisit: "-",
-    totalSpent: 0,
-    status: "inactive",
-    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?ixlib=rb-1.2.1&auto=format&fit=crop&w=256&q=80"
-  }
-];
+import { useApiQuery } from "@/hooks/useApiQuery";
+import { useApiMutation } from "@/hooks/useApiMutation";
+import { 
+  Client, 
+  ClientFilterParams, 
+  CreateClientData, 
+  clientService 
+} from "@/services/clientService";
 
 const ClientsPage = () => {
-  const [clients, setClients] = useState<Client[]>(mockClients);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedClient, setSelectedClient] = useState<Client | null>(null);
   const [isAddClientOpen, setIsAddClientOpen] = useState(false);
-  const [newClient, setNewClient] = useState<Partial<Client>>({
-    name: "",
-    email: "",
-    phone: "",
-    status: "active",
-    notes: ""
-  });
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
   const [selectedTab, setSelectedTab] = useState("all");
   const [sortConfig, setSortConfig] = useState<{
     key: keyof Client;
     direction: 'asc' | 'desc';
   } | null>(null);
+  const [filterParams, setFilterParams] = useState<ClientFilterParams>({
+    page: 1,
+    limit: 20
+  });
   
   const { toast } = useToast();
 
-  // Фильтрация клиентов по статусу и поиску
-  const filteredClients = clients.filter(client => {
-    const matchesSearch = 
-      client.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      client.phone.includes(searchTerm);
-    
-    if (selectedTab === "all") return matchesSearch;
-    if (selectedTab === "vip") return client.status === "vip" && matchesSearch;
-    if (selectedTab === "active") return client.status === "active" && matchesSearch;
-    if (selectedTab === "inactive") return client.status === "inactive" && matchesSearch;
-    
-    return matchesSearch;
+  // Получение списка клиентов с использованием хука useApiQuery
+  const { 
+    data: clientsResponse, 
+    isLoading: isLoadingClients, 
+    error: clientsError, 
+    refetch: refetchClients 
+  } = useApiQuery({
+    queryFn: () => clientService.getClients(filterParams),
+    params: filterParams
   });
 
-  // Сортировка клиентов
-  const sortedClients = [...filteredClients].sort((a, b) => {
-    if (!sortConfig) return 0;
-    
-    const { key, direction } = sortConfig;
-    
-    if (a[key] < b[key]) {
-      return direction === 'asc' ? -1 : 1;
+  // Хук для создания нового клиента
+  const { 
+    mutate: createClient, 
+    isLoading: isCreatingClient 
+  } = useApiMutation({
+    mutationFn: (data: CreateClientData) => clientService.createClient(data),
+    onSuccess: () => {
+      setIsAddClientOpen(false);
+      refetchClients();
+      setNewClient({
+        firstName: "",
+        lastName: "",
+        email: "",
+        phone: "",
+        status: "active",
+        notes: ""
+      });
     }
-    if (a[key] > b[key]) {
-      return direction === 'asc' ? 1 : -1;
-    }
-    return 0;
   });
+
+  // Хук для удаления клиента
+  const { 
+    mutate: deleteClient, 
+    isLoading: isDeletingClient 
+  } = useApiMutation({
+    mutationFn: (id: number) => clientService.deleteClient(id),
+    onSuccess: () => {
+      setIsDetailModalOpen(false);
+      refetchClients();
+    }
+  });
+
+  // Обновляем параметры фильтрации при изменении таба
+  useEffect(() => {
+    const newFilterParams: ClientFilterParams = {
+      ...filterParams,
+      status: selectedTab !== "all" ? selectedTab as any : undefined,
+      search: searchTerm || undefined,
+      page: 1 // Сбрасываем на первую страницу при изменении фильтров
+    };
+    
+    setFilterParams(newFilterParams);
+  }, [selectedTab, searchTerm]);
+
+  // Состояние для нового клиента
+  const [newClient, setNewClient] = useState<CreateClientData>({
+    firstName: "",
+    lastName: "",
+    email: "",
+    phone: "",
+    status: "active",
+    notes: ""
+  });
+
+  // Обработчик добавления нового клиента
+  const handleAddClient = () => {
+    createClient(newClient);
+  };
+
+  // Обработчик удаления клиента
+  const handleDeleteClient = (id: number) => {
+    deleteClient(id);
+  };
+
+  // Открыть модальное окно с деталями клиента
+  const openClientDetails = (client: Client) => {
+    setSelectedClient(client);
+    setIsDetailModalOpen(true);
+  };
+
+  // Форматирование даты
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return "-";
+    
+    const date = new Date(dateString);
+    return new Intl.DateTimeFormat('ru-RU', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(date);
+  };
+
+  // Статистика клиентов
+  const clientsStats = {
+    total: clientsResponse?.meta.total || 0,
+    active: clientsResponse?.data.filter(client => client.status === "active").length || 0,
+    vip: clientsResponse?.data.filter(client => client.status === "vip").length || 0,
+    inactive: clientsResponse?.data.filter(client => client.status === "inactive").length || 0
+  };
+
+  // Подготовка клиентов для отображения, включая сортировку
+  const prepareClients = () => {
+    if (!clientsResponse?.data) return [];
+    
+    let clients = [...clientsResponse.data];
+    
+    // Применяем сортировку, если она задана
+    if (sortConfig) {
+      clients.sort((a, b) => {
+        if (a[sortConfig.key] < b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? -1 : 1;
+        }
+        if (a[sortConfig.key] > b[sortConfig.key]) {
+          return sortConfig.direction === 'asc' ? 1 : -1;
+        }
+        return 0;
+      });
+    }
+    
+    return clients;
+  };
+  
+  const clients = prepareClients();
 
   // Обработчик изменения сортировки
   const handleSort = (key: keyof Client) => {
@@ -220,76 +213,36 @@ const ClientsPage = () => {
     }
     
     setSortConfig({ key, direction });
-  };
-
-  // Обработчик добавления нового клиента
-  const handleAddClient = () => {
-    const newId = Math.max(...clients.map(client => client.id)) + 1;
-    const clientToAdd: Client = {
-      id: newId,
-      name: newClient.name || "",
-      email: newClient.email || "",
-      phone: newClient.phone || "",
-      visits: 0,
-      lastVisit: "-",
-      totalSpent: 0,
-      status: newClient.status as 'active' | 'inactive' | 'vip' || "active",
-      notes: newClient.notes
-    };
     
-    setClients([...clients, clientToAdd]);
-    setNewClient({
-      name: "",
-      email: "",
-      phone: "",
-      status: "active",
-      notes: ""
-    });
-    setIsAddClientOpen(false);
-    
-    toast({
-      title: "Клиент добавлен",
-      description: `Клиент ${clientToAdd.name} успешно добавлен в систему.`,
-      duration: 3000
+    // Обновляем параметры запроса для серверной сортировки
+    setFilterParams({
+      ...filterParams,
+      sortBy: key,
+      sortDirection: direction
     });
   };
 
-  // Обработчик удаления клиента
-  const handleDeleteClient = (id: number) => {
-    const clientToDelete = clients.find(client => client.id === id);
-    setClients(clients.filter(client => client.id !== id));
-    
-    toast({
-      title: "Клиент удален",
-      description: `Клиент ${clientToDelete?.name} был удален из системы.`,
-      duration: 3000
-    });
-  };
-
-  // Открыть модальное окно с деталями клиента
-  const openClientDetails = (client: Client) => {
-    setSelectedClient(client);
-    setIsDetailModalOpen(true);
-  };
-
-  // Статистика клиентов
-  const clientsStats = {
-    total: clients.length,
-    active: clients.filter(client => client.status === "active").length,
-    vip: clients.filter(client => client.status === "vip").length,
-    inactive: clients.filter(client => client.status === "inactive").length
-  };
-
-  // Форматирование даты
-  const formatDate = (dateString: string) => {
-    if (dateString === "-") return "-";
-    
-    const date = new Date(dateString);
-    return new Intl.DateTimeFormat('ru-RU', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric'
-    }).format(date);
+  // Экспорт клиентов в CSV
+  const handleExportClients = async () => {
+    try {
+      const blob = await clientService.exportClients(filterParams);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'clients.csv';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      
+      toast({
+        title: "Экспорт выполнен",
+        description: "Список клиентов успешно экспортирован",
+        duration: 3000
+      });
+    } catch (error) {
+      console.error("Export error:", error);
+    }
   };
 
   return (
@@ -308,11 +261,19 @@ const ClientsPage = () => {
                 </p>
               </div>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="gap-1">
+                <Button 
+                  variant="outline" 
+                  size="sm" 
+                  className="gap-1"
+                  onClick={handleExportClients}
+                >
                   <Download className="h-4 w-4" />
                   <span className="hidden sm:inline">Экспорт</span>
                 </Button>
-                <Button className="gap-1" onClick={() => setIsAddClientOpen(true)}>
+                <Button 
+                  className="gap-1" 
+                  onClick={() => setIsAddClientOpen(true)}
+                >
                   <Plus className="h-4 w-4" />
                   <span className="hidden sm:inline">Добавить клиента</span>
                 </Button>
@@ -326,7 +287,11 @@ const ClientsPage = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Всего клиентов</p>
-                      <h3 className="text-2xl font-bold mt-1">{clientsStats.total}</h3>
+                      {isLoadingClients ? (
+                        <Skeleton className="h-8 w-16 mt-1" />
+                      ) : (
+                        <h3 className="text-2xl font-bold mt-1">{clientsStats.total}</h3>
+                      )}
                     </div>
                     <div className="p-2 bg-blue-50 rounded-full">
                       <svg
@@ -358,7 +323,11 @@ const ClientsPage = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Активные клиенты</p>
-                      <h3 className="text-2xl font-bold mt-1">{clientsStats.active}</h3>
+                      {isLoadingClients ? (
+                        <Skeleton className="h-8 w-16 mt-1" />
+                      ) : (
+                        <h3 className="text-2xl font-bold mt-1">{clientsStats.active}</h3>
+                      )}
                     </div>
                     <div className="p-2 bg-green-50 rounded-full">
                       <svg
@@ -377,9 +346,15 @@ const ClientsPage = () => {
                     </div>
                   </div>
                   <div className="mt-4 flex justify-between text-xs">
-                    <div className="text-green-600">
-                      {(clientsStats.active / clientsStats.total * 100).toFixed(0)}% от общего числа
-                    </div>
+                    {isLoadingClients ? (
+                      <Skeleton className="h-4 w-24" />
+                    ) : (
+                      <div className="text-green-600">
+                        {clientsStats.total > 0 ? 
+                          `${Math.round(clientsStats.active / clientsStats.total * 100)}% от общего числа` : 
+                          '0% от общего числа'}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -389,16 +364,26 @@ const ClientsPage = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">VIP клиенты</p>
-                      <h3 className="text-2xl font-bold mt-1">{clientsStats.vip}</h3>
+                      {isLoadingClients ? (
+                        <Skeleton className="h-8 w-16 mt-1" />
+                      ) : (
+                        <h3 className="text-2xl font-bold mt-1">{clientsStats.vip}</h3>
+                      )}
                     </div>
                     <div className="p-2 bg-purple-50 rounded-full">
                       <Star className="h-6 w-6 text-purple-600" />
                     </div>
                   </div>
                   <div className="mt-4 flex justify-between text-xs">
-                    <div className="text-purple-600">
-                      {(clientsStats.vip / clientsStats.total * 100).toFixed(0)}% от общего числа
-                    </div>
+                    {isLoadingClients ? (
+                      <Skeleton className="h-4 w-24" />
+                    ) : (
+                      <div className="text-purple-600">
+                        {clientsStats.total > 0 ? 
+                          `${Math.round(clientsStats.vip / clientsStats.total * 100)}% от общего числа` : 
+                          '0% от общего числа'}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -408,7 +393,11 @@ const ClientsPage = () => {
                   <div className="flex items-center justify-between">
                     <div>
                       <p className="text-sm font-medium text-muted-foreground">Неактивные клиенты</p>
-                      <h3 className="text-2xl font-bold mt-1">{clientsStats.inactive}</h3>
+                      {isLoadingClients ? (
+                        <Skeleton className="h-8 w-16 mt-1" />
+                      ) : (
+                        <h3 className="text-2xl font-bold mt-1">{clientsStats.inactive}</h3>
+                      )}
                     </div>
                     <div className="p-2 bg-red-50 rounded-full">
                       <svg
@@ -427,9 +416,15 @@ const ClientsPage = () => {
                     </div>
                   </div>
                   <div className="mt-4 flex justify-between text-xs">
-                    <div className="text-red-600">
-                      {(clientsStats.inactive / clientsStats.total * 100).toFixed(0)}% от общего числа
-                    </div>
+                    {isLoadingClients ? (
+                      <Skeleton className="h-4 w-24" />
+                    ) : (
+                      <div className="text-red-600">
+                        {clientsStats.total > 0 ? 
+                          `${Math.round(clientsStats.inactive / clientsStats.total * 100)}% от общего числа` : 
+                          '0% от общего числа'}
+                      </div>
+                    )}
                   </div>
                 </CardContent>
               </Card>
@@ -462,8 +457,8 @@ const ClientsPage = () => {
                     </Button>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent>
-                    <DropdownMenuItem onClick={() => handleSort('name')}>
-                      По имени {sortConfig?.key === 'name' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
+                    <DropdownMenuItem onClick={() => handleSort('firstName')}>
+                      По имени {sortConfig?.key === 'firstName' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
                     </DropdownMenuItem>
                     <DropdownMenuItem onClick={() => handleSort('visits')}>
                       По визитам {sortConfig?.key === 'visits' && (sortConfig.direction === 'asc' ? '↑' : '↓')}
@@ -498,18 +493,53 @@ const ClientsPage = () => {
               </TabsList>
               
               <TabsContent value="all" className="mt-4">
-                {renderClientsTable(sortedClients)}
+                {renderClientsTable(clients, isLoadingClients)}
               </TabsContent>
               <TabsContent value="active" className="mt-4">
-                {renderClientsTable(sortedClients)}
+                {renderClientsTable(clients, isLoadingClients)}
               </TabsContent>
               <TabsContent value="vip" className="mt-4">
-                {renderClientsTable(sortedClients)}
+                {renderClientsTable(clients, isLoadingClients)}
               </TabsContent>
               <TabsContent value="inactive" className="mt-4">
-                {renderClientsTable(sortedClients)}
+                {renderClientsTable(clients, isLoadingClients)}
               </TabsContent>
             </Tabs>
+            
+            {/* Пагинация */}
+            {clientsResponse && clientsResponse.meta.lastPage > 1 && (
+              <div className="flex justify-center mt-6">
+                <div className="flex items-center space-x-2">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFilterParams({ ...filterParams, page: filterParams.page! - 1 })}
+                    disabled={filterParams.page === 1 || isLoadingClients}
+                  >
+                    Назад
+                  </Button>
+                  {Array.from({ length: clientsResponse.meta.lastPage }, (_, i) => i + 1).map((page) => (
+                    <Button
+                      key={page}
+                      variant={page === filterParams.page ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => setFilterParams({ ...filterParams, page })}
+                      disabled={isLoadingClients}
+                    >
+                      {page}
+                    </Button>
+                  ))}
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setFilterParams({ ...filterParams, page: filterParams.page! + 1 })}
+                    disabled={filterParams.page === clientsResponse.meta.lastPage || isLoadingClients}
+                  >
+                    Вперед
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
         </main>
       </div>
@@ -525,13 +555,24 @@ const ClientsPage = () => {
           </DialogHeader>
           <div className="grid gap-4 py-4">
             <div className="grid grid-cols-4 items-center gap-4">
-              <Label htmlFor="name" className="text-right">
+              <Label htmlFor="firstName" className="text-right">
                 Имя
               </Label>
               <Input
-                id="name"
-                value={newClient.name}
-                onChange={(e) => setNewClient({...newClient, name: e.target.value})}
+                id="firstName"
+                value={newClient.firstName}
+                onChange={(e) => setNewClient({...newClient, firstName: e.target.value})}
+                className="col-span-3"
+              />
+            </div>
+            <div className="grid grid-cols-4 items-center gap-4">
+              <Label htmlFor="lastName" className="text-right">
+                Фамилия
+              </Label>
+              <Input
+                id="lastName"
+                value={newClient.lastName}
+                onChange={(e) => setNewClient({...newClient, lastName: e.target.value})}
                 className="col-span-3"
               />
             </div>
@@ -586,8 +627,17 @@ const ClientsPage = () => {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setIsAddClientOpen(false)}>Отмена</Button>
-            <Button onClick={handleAddClient}>Добавить</Button>
+            <Button variant="outline" onClick={() => setIsAddClientOpen(false)} disabled={isCreatingClient}>
+              Отмена
+            </Button>
+            <Button onClick={handleAddClient} disabled={isCreatingClient}>
+              {isCreatingClient ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Добавление...
+                </>
+              ) : "Добавить"}
+            </Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -605,11 +655,13 @@ const ClientsPage = () => {
                 <div className="flex-1">
                   <div className="flex items-center space-x-4 mb-6">
                     <Avatar className="h-16 w-16">
-                      <AvatarImage src={selectedClient.avatar} alt={selectedClient.name} />
-                      <AvatarFallback>{selectedClient.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+                      <AvatarImage src={selectedClient.avatar} alt={selectedClient.firstName} />
+                      <AvatarFallback>
+                        {`${selectedClient.firstName[0]}${selectedClient.lastName[0]}`}
+                      </AvatarFallback>
                     </Avatar>
                     <div>
-                      <h3 className="text-xl font-bold">{selectedClient.name}</h3>
+                      <h3 className="text-xl font-bold">{`${selectedClient.firstName} ${selectedClient.lastName}`}</h3>
                       <div className="flex items-center">
                         <StatusBadge status={selectedClient.status} />
                         <span className="ml-2 text-sm text-muted-foreground">
@@ -691,38 +743,25 @@ const ClientsPage = () => {
                   
                   {selectedClient.visits > 0 ? (
                     <div className="space-y-2 max-h-60 overflow-y-auto">
+                      {/* В реальном приложении здесь будут данные о визитах из API */}
                       <div className="p-3 border rounded-md flex items-center justify-between">
                         <div>
                           <p className="font-medium">Стрижка и окрашивание</p>
-                          <p className="text-xs text-muted-foreground">25.04.2025</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(selectedClient.lastVisit)}
+                          </p>
                         </div>
                         <p className="font-medium">3500 ₽</p>
                       </div>
                       <div className="p-3 border rounded-md flex items-center justify-between">
                         <div>
                           <p className="font-medium">Покупка: Шампунь, кондиционер</p>
-                          <p className="text-xs text-muted-foreground">25.04.2025</p>
+                          <p className="text-xs text-muted-foreground">
+                            {formatDate(selectedClient.lastVisit)}
+                          </p>
                         </div>
                         <p className="font-medium">2150 ₽</p>
                       </div>
-                      {selectedClient.visits > 2 && (
-                        <>
-                          <div className="p-3 border rounded-md flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Укладка волос</p>
-                              <p className="text-xs text-muted-foreground">10.04.2025</p>
-                            </div>
-                            <p className="font-medium">1800 ₽</p>
-                          </div>
-                          <div className="p-3 border rounded-md flex items-center justify-between">
-                            <div>
-                              <p className="font-medium">Маникюр</p>
-                              <p className="text-xs text-muted-foreground">01.04.2025</p>
-                            </div>
-                            <p className="font-medium">2000 ₽</p>
-                          </div>
-                        </>
-                      )}
                     </div>
                   ) : (
                     <div className="p-4 text-center text-muted-foreground bg-muted rounded-md">
@@ -733,12 +772,24 @@ const ClientsPage = () => {
               </div>
               <DialogFooter className="flex justify-between">
                 <div>
-                  <Button variant="destructive" size="sm" className="mr-2" onClick={() => {
-                    handleDeleteClient(selectedClient.id);
-                    setIsDetailModalOpen(false);
-                  }}>
-                    <Trash2 className="h-4 w-4 mr-1" />
-                    Удалить
+                  <Button 
+                    variant="destructive" 
+                    size="sm" 
+                    className="mr-2" 
+                    onClick={() => handleDeleteClient(selectedClient.id)}
+                    disabled={isDeletingClient}
+                  >
+                    {isDeletingClient ? (
+                      <>
+                        <Loader2 className="mr-1 h-4 w-4 animate-spin" />
+                        Удаление...
+                      </>
+                    ) : (
+                      <>
+                        <Trash2 className="h-4 w-4 mr-1" />
+                        Удалить
+                      </>
+                    )}
                   </Button>
                 </div>
                 <div>
@@ -759,7 +810,7 @@ const ClientsPage = () => {
   );
   
   // Вспомогательная функция для отображения таблицы клиентов
-  function renderClientsTable(clients: Client[]) {
+  function renderClientsTable(clients: Client[], isLoading: boolean) {
     return (
       <div className="rounded-md border">
         <Table>
@@ -774,10 +825,49 @@ const ClientsPage = () => {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {clients.length === 0 ? (
+            {isLoading ? (
+              // Скелетон загрузки
+              Array.from({ length: 5 }).map((_, index) => (
+                <TableRow key={index}>
+                  <TableCell>
+                    <div className="flex items-center space-x-2">
+                      <Skeleton className="h-10 w-10 rounded-full" />
+                      <div className="space-y-1">
+                        <Skeleton className="h-4 w-32" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-40" />
+                      <Skeleton className="h-3 w-32" />
+                    </div>
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell text-center">
+                    <Skeleton className="h-4 w-8 mx-auto" />
+                  </TableCell>
+                  <TableCell className="hidden md:table-cell">
+                    <Skeleton className="h-4 w-24" />
+                  </TableCell>
+                  <TableCell className="hidden lg:table-cell text-center">
+                    <Skeleton className="h-4 w-20 mx-auto" />
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <Skeleton className="h-8 w-8 ml-auto" />
+                  </TableCell>
+                </TableRow>
+              ))
+            ) : clients.length === 0 ? (
               <TableRow>
                 <TableCell colSpan={6} className="text-center py-8">
-                  Клиенты не найдены
+                  {clientsError ? (
+                    <div className="text-red-500">
+                      Ошибка загрузки данных. Пожалуйста, попробуйте позже.
+                    </div>
+                  ) : (
+                    "Клиенты не найдены"
+                  )}
                 </TableCell>
               </TableRow>
             ) : (
@@ -786,11 +876,11 @@ const ClientsPage = () => {
                   <TableCell className="font-medium">
                     <div className="flex items-center">
                       <Avatar className="h-8 w-8 mr-2">
-                        <AvatarImage src={client.avatar} alt={client.name} />
-                        <AvatarFallback>{client.name.split(" ").map(n => n[0]).join("")}</AvatarFallback>
+                        <AvatarImage src={client.avatar} alt={`${client.firstName} ${client.lastName}`} />
+                        <AvatarFallback>{`${client.firstName[0]}${client.lastName[0]}`}</AvatarFallback>
                       </Avatar>
                       <div>
-                        {client.name}
+                        {`${client.firstName} ${client.lastName}`}
                         <div className="flex items-center md:hidden mt-1">
                           <StatusBadge status={client.status} />
                         </div>
